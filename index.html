@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tank Combat</title>
+<style>
+body{margin:0;overflow:hidden;background:#414936;color:white;font-family:Arial}
+canvas{display:block;width:100vw;height:100vh}
+#hud{position:fixed;top:10px;left:10px;background:#172018dd;padding:12px;border-radius:8px}
+#help{position:fixed;bottom:10px;left:10px;background:#172018dd;padding:10px;font-size:13px;line-height:1.5}
+#start{position:fixed;inset:0;background:#111d;display:grid;place-items:center;text-align:center}
+button{padding:14px 24px;background:#687d43;color:white;border:0;border-radius:8px;font-weight:bold;font-size:18px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">🛡️ VIDA: <span id="hp">100</span>%<br>🎯 ABATES: <span id="score">0</span><br>INIMIGOS: <span id="enemies">5</span></div>
+<div id="help">WASD: mover o tanque<br>Mouse: mirar<br>Clique ou ESPAÇO: atirar</div>
+<div id="start"><div><h1>🪖 TANK COMBAT</h1><p>Destrua os tanques inimigos!</p><button id="play">INICIAR JOGO</button></div></div>
+<script>
+const c=document.querySelector("#game"),ctx=c.getContext("2d");
+let W,H;
+function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
+resize();onresize=resize;
+const keys={},mouse={x:W/2,y:H/2,down:false};
+let p,es,bs,ps,score,alive,shot=0;
+function spawn(){
+ let a=Math.random()*6.28,d=350+Math.random()*250;
+ return{x:p.x+Math.cos(a)*d,y:p.y+Math.sin(a)*d,a:0,hp:100,cd:Math.random()*2};
+}
+function reset(){
+ p={x:0,y:0,a:0,t:0,hp:100};
+ es=[];bs=[];ps=[];score=0;alive=true;
+ for(let i=0;i<5;i++)es.push(spawn());
+ document.querySelector("#start").style.display="none";
+ requestAnimationFrame(loop);
+}
+function tank(t,enemy=false){
+ ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.a);
+ ctx.fillStyle="#20241d";ctx.fillRect(-24,-19,48,38);
+ for(let i=0;i<6;i++){ctx.fillStyle="#77796b";ctx.fillRect(-20+i*7,-18,4,6);ctx.fillRect(-20+i*7,12,4,6)}
+ ctx.fillStyle=enemy?"#9a5545":"#74884b";ctx.fillRect(-19,-13,38,26);
+ ctx.fillStyle=enemy?"#b06b57":"#8b9b5f";ctx.fillRect(-10,-11,23,22);
+ ctx.rotate(t.t-t.a);ctx.fillStyle="#34382e";
+ ctx.fillRect(0,-4,35,8);
+ ctx.fillStyle=enemy?"#c18b76":"#9da879";
+ ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();
+ ctx.restore();
+}
+function boom(x,y){
+ for(let i=0;i<15;i++)ps.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.6,color:Math.random()<.5?"orange":"#555"});
+}
+function loop(){
+ if(!alive)return;
+ let dt=1/60;
+ if(keys.w||keys.arrowup){p.x+=Math.cos(p.a)*140*dt;p.y+=Math.sin(p.a)*140*dt}
+ if(keys.s||keys.arrowdown){p.x-=Math.cos(p.a)*90*dt;p.y-=Math.sin(p.a)*90*dt}
+ if(keys.a||keys.arrowleft)p.a-=2*dt;
+ if(keys.d||keys.arrowright)p.a+=2*dt;
+ let camX=p.x-W/2,camY=p.y-H/2;
+ p.t=Math.atan2(mouse.y-H/2,mouse.x-W/2);
+ ctx.fillStyle="#505842";ctx.fillRect(0,0,W,H);
+ ctx.save();ctx.translate(-camX,-camY);
+ for(let i=-10;i<30;i++)for(let j=-10;j<30;j++){
+  ctx.fillStyle=((i+j)%2)?"#565d45":"#505741";
+  ctx.fillRect(i*100,j*100,100,100);
+ }
+ for(const e of es){
+  let a=Math.atan2(p.y-e.y,p.x-e.x),d=Math.hypot(p.x-e.x,p.y-e.y);
+  e.a=a;e.t=a;
+  if(d>180){e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt}
+  e.cd-=dt;
+  if(d<500&&e.cd<=0){bs.push({x:e.x+Math.cos(a)*35,y:e.y+Math.sin(a)*35,vx:Math.cos(a)*300,vy:Math.sin(a)*300,enemy:true,life:2});e.cd=1.8}
+  tank(e,true);
+  ctx.fillStyle="red";ctx.fillRect(e.x-20,e.y-28,40*e.hp/100,4);
+ }
+ tank(p);
+ for(const b of bs){
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  ctx.fillStyle=b.enemy?"#ff6548":"#ffe09a";
+  ctx.beginPath();ctx.arc(b.x,b.y,4,0,7);ctx.fill();
+  if(b.enemy&&Math.hypot(b.x-p.x,b.y-p.y)<25){p.hp-=.35;b.life=0}
+  if(!b.enemy)for(const e of es)if(Math.hypot(b.x-e.x,b.y-e.y)<25){e.hp-=35;b.life=0;boom(b.x,b.y)}
+ }
+ bs=bs.filter(b=>b.life>0);
+ es=es.filter(e=>{if(e.hp<=0){score++;boom(e.x,e.y);return false}return true});
+ for(const q of ps){q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.color;ctx.fillRect(q.x,q.y,5,5)}
+ ctx.globalAlpha=1;ps=ps.filter(q=>q.life>0);
+ ctx.restore();
+ if(es.length<5)es.push(spawn());
+ document.querySelector("#hp").textContent=Math.max(0,Math.ceil(p.hp));
+ document.querySelector("#score").textContent=score;
+ document.querySelector("#enemies").textContent=es.length;
+ if(p.hp<=0){alive=false;document.querySelector("#start").style.display="grid";document.querySelector("#start h1").textContent="TANQUE DESTRUÍDO";document.querySelector("#play").textContent="JOGAR NOVAMENTE";return}
+ requestAnimationFrame(loop);
+}
+onkeydown=e=>{keys[e.key.toLowerCase()]=true;if(e.code==="Space"){e.preventDefault();fire()}};
+onkeyup=e=>keys[e.key.toLowerCase()]=false;
+c.onmousemove=e=>{mouse.x=e.clientX;mouse.y=e.clientY};
+c.onmousedown=()=>{mouse.down=true;fire()};
+onmouseup=()=>mouse.down=false;
+function fire(){
+ if(!p||!alive||performance.now()-shot<300)return;
+ shot=performance.now();
+ let a=p.t;
+ bs.push({x:p.x+Math.cos(a)*35,y:p.y+Math.sin(a)*35,vx:Math.cos(a)*500,vy:Math.sin(a)*500,enemy:false,life:2});
+}
+document.querySelector("#play").onclick=reset;
+</script>
+</body>
+</html>
