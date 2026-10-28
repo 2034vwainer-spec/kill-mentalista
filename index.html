@@ -1,112 +1,177 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tank Combat</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>IRON FRONT | Tank Combat</title>
 <style>
-body{margin:0;overflow:hidden;background:#414936;color:white;font-family:Arial}
-canvas{display:block;width:100vw;height:100vh}
-#hud{position:fixed;top:10px;left:10px;background:#172018dd;padding:12px;border-radius:8px}
-#help{position:fixed;bottom:10px;left:10px;background:#172018dd;padding:10px;font-size:13px;line-height:1.5}
-#start{position:fixed;inset:0;background:#111d;display:grid;place-items:center;text-align:center}
-button{padding:14px 24px;background:#687d43;color:white;border:0;border-radius:8px;font-weight:bold;font-size:18px}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#353d2d;color:#f4f3e8;font-family:Arial,sans-serif}
+canvas{display:block;width:100%;height:100%;cursor:crosshair}
+#hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:#101710e8;border:1px solid #77836b;border-radius:8px;padding:11px 13px;font-size:12px;box-shadow:0 4px 18px #0006}
+.brand{font-weight:900;letter-spacing:2px;color:#c7e58d;font-size:16px}
+.muted{color:#bbc5b0;font-size:11px;margin-top:5px}
+.bar{display:inline-block;width:110px;height:9px;background:#452b24;border-radius:8px;overflow:hidden;vertical-align:middle;margin-left:7px}
+#hpbar{height:100%;width:100%;background:#c7e58d}
+#help{position:fixed;left:12px;bottom:12px;background:#101710e8;border:1px solid #77836b;border-radius:8px;padding:10px 13px;font-size:12px;line-height:1.6}
+#overlay{position:fixed;inset:0;z-index:5;display:grid;place-items:center;padding:18px;background:linear-gradient(120deg,#101710ee,#20271bdc)}
+.dialog{width:min(550px,100%);background:#101710f5;border:1px solid #83916e;border-top:4px solid #c7e58d;border-radius:12px;padding:clamp(22px,5vw,40px);box-shadow:0 25px 90px #000a}
+.kicker{font-size:11px;letter-spacing:4px;color:#c7e58d;font-weight:bold}
+h1{font-size:clamp(38px,8vw,64px);line-height:.92;margin:14px 0;letter-spacing:-2px}
+p{font-size:14px;line-height:1.6;color:#c7cebd}
+.features{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:20px 0}
+.feature{background:#ffffff07;border:1px solid #394334;padding:10px;border-radius:6px;font-size:12px}
+button{border:0;border-radius:6px;padding:14px 20px;background:#c7e58d;color:#172014;font-weight:900;letter-spacing:1px;cursor:pointer}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.secondary{background:#303a2b;color:#f0f2e9;border:1px solid #68745d}
+#toast{position:fixed;top:110px;left:50%;transform:translateX(-50%);background:#111d;padding:10px 15px;border:1px solid #a0b37c;border-radius:7px;opacity:0;transition:.2s;z-index:4;pointer-events:none}
+#mobile{position:fixed;bottom:12px;left:12px;right:12px;display:none;justify-content:space-between;z-index:3;pointer-events:none}
+.pad{display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:4px;pointer-events:auto}
+.pad button,#fire{background:#172016d9;color:white;border:1px solid #89967a;padding:0;touch-action:none}
+.up{grid-column:2}.left{grid-column:1;grid-row:2}.down{grid-column:2;grid-row:2}.right{grid-column:3;grid-row:2}
+#fire{align-self:end;width:72px;height:72px;border-radius:9px;background:#6d3c2ed9}
+@media(max-width:700px){#help{display:none}#mobile{display:flex}.panel{padding:8px;font-size:11px}.brand{font-size:12px}.bar{width:65px}}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="hud">🛡️ VIDA: <span id="hp">100</span>%<br>🎯 ABATES: <span id="score">0</span><br>INIMIGOS: <span id="enemies">5</span></div>
-<div id="help">WASD: mover o tanque<br>Mouse: mirar<br>Clique ou ESPAÇO: atirar</div>
-<div id="start"><div><h1>🪖 TANK COMBAT</h1><p>Destrua os tanques inimigos!</p><button id="play">INICIAR JOGO</button></div></div>
+<div id="hud">
+<div class="panel">
+<div class="brand">IRON FRONT <span style="color:#eee">/ 01</span></div>
+<div class="muted">ZONA DE OPERAÇÕES · SETOR ALFA</div>
+<div style="margin-top:8px">BLINDAGEM <b id="hptext">100%</b><span class="bar"><div id="hpbar"></div></span></div>
+<div class="muted">CANHÃO 120 MM · MUNIÇÃO ILIMITADA</div>
+</div>
+<div class="panel" style="text-align:right">
+<div class="muted">MISSÃO: ELIMINAR O CHEFE DE CADA SETOR</div>
+NÍVEL <b id="level">1</b>/4　 ABATES <b id="kills">0</b>
+<div class="muted">ONDA <b id="wave">1</b> · INIMIGOS: <b id="count">0</b></div>
+<div id="bossWrap" class="muted" style="display:none">CHEFE <b id="bossName">GENERAL FERRO</b><span class="bar" style="width:130px"><div id="bossbar" style="height:100%;width:100%;background:#e45d45"></div></span></div>
+</div>
+</div>
+<div id="help"><b style="color:#c7e58d">CONTROLES</b><br>WASD / setas: dirigir<br>Mouse: mirar torre<br>Clique ou ESPAÇO: disparar<br><span class="muted">Mova-se para evitar tiros inimigos.</span></div>
+<div id="mobile">
+<div class="pad">
+<button class="up" data-key="w">▲</button>
+<button class="left" data-key="a">◀</button>
+<button class="down" data-key="s">▼</button>
+<button class="right" data-key="d">▶</button>
+</div>
+<button id="fire">DISPARAR</button>
+</div>
+<div id="toast"></div>
+<div id="overlay"><div class="dialog">
+<div class="kicker">SIMULAÇÃO TÁTICA · ARCADE</div>
+<h1 id="title">IRON<br>FRONT</h1>
+<p id="desc">Conquiste quatro campos de batalha. Cada nível termina com um chefe blindado exclusivo, mais resistente e perigoso que o anterior.</p>
+<div class="features">
+<div class="feature">▰ <b>Combate blindado</b><br><span class="muted">Torre e canhão independentes</span></div>
+<div class="feature">◈ <b>Campo de batalha</b><br><span class="muted">Crateras, rochas e destroços</span></div>
+<div class="feature">✦ <b>Efeitos visuais</b><br><span class="muted">Faíscas, fumaça e explosões</span></div>
+<div class="feature">▲ <b>4 níveis + 4 chefes</b><br><span class="muted">Um boss no final de cada nível</span></div>
+</div>
+<div class="actions"><button id="start">INICIAR MISSÃO</button><button class="secondary" id="controls">CONTROLES</button></div>
+<p class="muted">Jogo HTML independente · navegador · sem instalações extras.</p>
+</div></div>
 <script>
-const c=document.querySelector("#game"),ctx=c.getContext("2d");
-let W,H;
-function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
-resize();onresize=resize;
-const keys={},mouse={x:W/2,y:H/2,down:false};
-let p,es,bs,ps,score,alive,shot=0;
-function spawn(){
- let a=Math.random()*6.28,d=350+Math.random()*250;
- return{x:p.x+Math.cos(a)*d,y:p.y+Math.sin(a)*d,a:0,hp:100,cd:Math.random()*2};
+(()=>{
+const c=document.querySelector('#game'),x=c.getContext('2d'),$=id=>document.getElementById(id);
+let W,H,D=1;
+function size(){D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';x.setTransform(D,0,0,D,0,0)}
+addEventListener('resize',size);size();
+const keys={},mouse={x:W/2,y:H/2,down:false},WORLD=3000,rand=(a,b)=>a+Math.random()*(b-a),clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let p,es=[],shots=[],fx=[],terrain=[],cam={x:0,y:0},active=false,kills=0,wave=1,level=1,spawn=0,last=0,lastFire=0,shake=0,bossSpawned=false;
+const bossNames=['GENERAL FERRO','TITÃ DE GELO','REI DO DESERTO','COLOSSO FINAL'];
+function msg(s){$('toast').textContent=s;$('toast').style.opacity=1;setTimeout(()=>$('toast').style.opacity=0,1300)}
+function enemy(isBoss=false){
+let a=rand(0,6.28),d=isBoss?650:rand(500,800),hp=isBoss?900+level*250:100+wave*7;
+return{x:clamp(p.x+Math.cos(a)*d,50,WORLD-50),y:clamp(p.y+Math.sin(a)*d,50,WORLD-50),a,t:a,hp,max:hp,speed:isBoss?25+level*3:rand(34,50)+wave,cd:rand(.8,2),boss:isBoss,damage:isBoss?15:9}
 }
-function reset(){
- p={x:0,y:0,a:0,t:0,hp:100};
- es=[];bs=[];ps=[];score=0;alive=true;
- for(let i=0;i<5;i++)es.push(spawn());
- document.querySelector("#start").style.display="none";
- requestAnimationFrame(loop);
+function start(){
+p={x:WORLD/2,y:WORLD/2,a:-1.57,t:-1.57,hp:100};es=[];shots=[];fx=[];terrain=[];kills=0;wave=1;level=1;bossSpawned=false;spawn=0;active=true;
+for(let i=0;i<75;i++)terrain.push({x:rand(20,WORLD-20),y:rand(20,WORLD-20),r:rand(12,36),cr:Math.random()<.5,a:rand(0,6.28)});
+for(let i=0;i<4;i++)es.push(enemy());
+$('level').textContent=level;$('bossWrap').style.display='none';$('overlay').style.display='none';last=performance.now();requestAnimationFrame(loop)
 }
-function tank(t,enemy=false){
- ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.a);
- ctx.fillStyle="#20241d";ctx.fillRect(-24,-19,48,38);
- for(let i=0;i<6;i++){ctx.fillStyle="#77796b";ctx.fillRect(-20+i*7,-18,4,6);ctx.fillRect(-20+i*7,12,4,6)}
- ctx.fillStyle=enemy?"#9a5545":"#74884b";ctx.fillRect(-19,-13,38,26);
- ctx.fillStyle=enemy?"#b06b57":"#8b9b5f";ctx.fillRect(-10,-11,23,22);
- ctx.rotate(t.t-t.a);ctx.fillStyle="#34382e";
- ctx.fillRect(0,-4,35,8);
- ctx.fillStyle=enemy?"#c18b76":"#9da879";
- ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();
- ctx.restore();
+function boom(a,b,big){
+for(let i=0;i<(big?34:9);i++){let t=rand(0,6.28),s=rand(20,big?210:95);fx.push({x:a,y:b,vx:Math.cos(t)*s,vy:Math.sin(t)*s,l:rand(.3,big?1.3:.5),m:big?1.3:.5,r:rand(2,big?9:4),col:Math.random()<.4?'#e6d49b':Math.random()<.6?'#e17a38':'#393c30'})}
 }
-function boom(x,y){
- for(let i=0;i<15;i++)ps.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.6,color:Math.random()<.5?"orange":"#555"});
+function shoot(t,bad=false){
+let a=t.t,ox=t.x+Math.cos(a)*38,oy=t.y+Math.sin(a)*38;
+shots.push({x:ox,y:oy,vx:Math.cos(a)*(bad?320:690),vy:Math.sin(a)*(bad?320:690),l:bad?2:1.8,bad,damage:bad?9:42});
+for(let i=0;i<6;i++)fx.push({x:ox,y:oy,vx:rand(-60,60)+Math.cos(a)*rand(20,90),vy:rand(-60,60)+Math.sin(a)*rand(20,90),l:.15,m:.15,r:rand(2,5),col:'#ffd27b'});
+shake=bad?1:2
 }
-function loop(){
- if(!alive)return;
- let dt=1/60;
- if(keys.w||keys.arrowup){p.x+=Math.cos(p.a)*140*dt;p.y+=Math.sin(p.a)*140*dt}
- if(keys.s||keys.arrowdown){p.x-=Math.cos(p.a)*90*dt;p.y-=Math.sin(p.a)*90*dt}
- if(keys.a||keys.arrowleft)p.a-=2*dt;
- if(keys.d||keys.arrowright)p.a+=2*dt;
- let camX=p.x-W/2,camY=p.y-H/2;
- p.t=Math.atan2(mouse.y-H/2,mouse.x-W/2);
- ctx.fillStyle="#505842";ctx.fillRect(0,0,W,H);
- ctx.save();ctx.translate(-camX,-camY);
- for(let i=-10;i<30;i++)for(let j=-10;j<30;j++){
-  ctx.fillStyle=((i+j)%2)?"#565d45":"#505741";
-  ctx.fillRect(i*100,j*100,100,100);
- }
- for(const e of es){
-  let a=Math.atan2(p.y-e.y,p.x-e.x),d=Math.hypot(p.x-e.x,p.y-e.y);
-  e.a=a;e.t=a;
-  if(d>180){e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt}
-  e.cd-=dt;
-  if(d<500&&e.cd<=0){bs.push({x:e.x+Math.cos(a)*35,y:e.y+Math.sin(a)*35,vx:Math.cos(a)*300,vy:Math.sin(a)*300,enemy:true,life:2});e.cd=1.8}
-  tank(e,true);
-  ctx.fillStyle="red";ctx.fillRect(e.x-20,e.y-28,40*e.hp/100,4);
- }
- tank(p);
- for(const b of bs){
-  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-  ctx.fillStyle=b.enemy?"#ff6548":"#ffe09a";
-  ctx.beginPath();ctx.arc(b.x,b.y,4,0,7);ctx.fill();
-  if(b.enemy&&Math.hypot(b.x-p.x,b.y-p.y)<25){p.hp-=.35;b.life=0}
-  if(!b.enemy)for(const e of es)if(Math.hypot(b.x-e.x,b.y-e.y)<25){e.hp-=35;b.life=0;boom(b.x,b.y)}
- }
- bs=bs.filter(b=>b.life>0);
- es=es.filter(e=>{if(e.hp<=0){score++;boom(e.x,e.y);return false}return true});
- for(const q of ps){q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.color;ctx.fillRect(q.x,q.y,5,5)}
- ctx.globalAlpha=1;ps=ps.filter(q=>q.life>0);
- ctx.restore();
- if(es.length<5)es.push(spawn());
- document.querySelector("#hp").textContent=Math.max(0,Math.ceil(p.hp));
- document.querySelector("#score").textContent=score;
- document.querySelector("#enemies").textContent=es.length;
- if(p.hp<=0){alive=false;document.querySelector("#start").style.display="grid";document.querySelector("#start h1").textContent="TANQUE DESTRUÍDO";document.querySelector("#play").textContent="JOGAR NOVAMENTE";return}
- requestAnimationFrame(loop);
+function tank(t,bad=false){
+x.save();x.translate(t.x,t.y);if(t.boss)x.scale(1.55,1.55);
+x.fillStyle='#1115';x.beginPath();x.ellipse(3,7,33,24,0,0,6.28);x.fill();x.rotate(t.a);
+let base=bad?'#795044':'#687a49',light=bad?'#a66a57':'#89975f';
+x.fillStyle='#242823';x.fillRect(-27,-21,54,10);x.fillRect(-27,11,54,10);x.strokeStyle='#929483';x.lineWidth=1;
+for(let i=-23;i<26;i+=7){x.strokeRect(i,-20,4,8);x.strokeRect(i,12,4,8)}
+x.fillStyle=base;x.strokeStyle='#252b21';x.lineWidth=2;x.beginPath();x.moveTo(-22,-13);x.lineTo(14,-15);x.lineTo(24,-9);x.lineTo(24,9);x.lineTo(14,15);x.lineTo(-22,13);x.closePath();x.fill();x.stroke();
+x.fillStyle=light;x.fillRect(-10,-10,28,20);x.fillStyle=bad?'#b47a63':'#9baa6c';x.fillRect(15,-7,5,14);x.restore();
+x.save();x.translate(t.x,t.y);x.rotate(t.t);x.fillStyle='#292f25';x.fillRect(0,-4,40,8);x.fillStyle=light;x.fillRect(3,-2,30,4);x.fillStyle=base;x.beginPath();x.arc(0,0,13,0,6.28);x.fill();x.strokeStyle='#252b21';x.stroke();x.fillStyle=light;x.beginPath();x.arc(-2,-2,8,0,6.28);x.fill();x.restore();
+if(bad){let w=t.boss?76:44;x.fillStyle='#1b1b16';x.fillRect(t.x-w/2,t.y-(t.boss?48:33),w,6);x.fillStyle=t.boss?'#ff453b':'#ce7055';x.fillRect(t.x-w/2,t.y-(t.boss?48:33),w*clamp(t.hp/t.max,0,1),6)}
 }
-onkeydown=e=>{keys[e.key.toLowerCase()]=true;if(e.code==="Space"){e.preventDefault();fire()}};
-onkeyup=e=>keys[e.key.toLowerCase()]=false;
-c.onmousemove=e=>{mouse.x=e.clientX;mouse.y=e.clientY};
-c.onmousedown=()=>{mouse.down=true;fire()};
-onmouseup=()=>mouse.down=false;
-function fire(){
- if(!p||!alive||performance.now()-shot<300)return;
- shot=performance.now();
- let a=p.t;
- bs.push({x:p.x+Math.cos(a)*35,y:p.y+Math.sin(a)*35,vx:Math.cos(a)*500,vy:Math.sin(a)*500,enemy:false,life:2});
+function ground(){
+x.fillStyle='#505842';x.fillRect(0,0,WORLD,WORLD);
+for(let a=0;a<WORLD;a+=110)for(let b=0;b<WORLD;b+=110){x.fillStyle=(Math.sin(a*12.9+b*78.2)*43758%1)>.2?'#555d45':'#4b533d';x.fillRect(a,b,110,110)}
+x.strokeStyle='#414936';x.lineWidth=22;
+for(let i=0;i<5;i++){x.beginPath();x.moveTo(i*700,0);x.lineTo(i*700+300,WORLD);x.stroke()}
+for(const r of terrain){
+x.save();x.translate(r.x,r.y);x.rotate(r.a);
+if(r.cr){x.fillStyle='#30372a';x.beginPath();x.ellipse(0,0,r.r*1.3,r.r*.75,0,0,6.28);x.fill();x.strokeStyle='#77775c';x.lineWidth=4;x.stroke();x.fillStyle='#252c22';x.beginPath();x.ellipse(0,0,r.r*.7,r.r*.4,0,0,6.28);x.fill()}
+else{x.fillStyle='#34392e';x.beginPath();x.arc(3,5,r.r,0,6.28);x.fill();x.fillStyle='#777a66';x.beginPath();x.moveTo(-r.r,-2);x.lineTo(-r.r*.4,-r.r*.8);x.lineTo(r.r*.7,-r.r*.5);x.lineTo(r.r,r.r*.1);x.lineTo(r.r*.2,r.r*.8);x.closePath();x.fill()}
+x.restore()
 }
-document.querySelector("#play").onclick=reset;
+}
+function update(dt){
+let f=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0),turn=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+if(f){p.a+=turn*1.6*dt*(f<0?-1:1);p.x+=Math.cos(p.a)*f*120*dt;p.y+=Math.sin(p.a)*f*120*dt}else p.a+=turn*1.3*dt;
+p.x=clamp(p.x,30,WORLD-30);p.y=clamp(p.y,30,WORLD-30);
+p.t=Math.atan2(mouse.y-H/2,mouse.x-W/2);
+if((mouse.down||keys[' '])&&performance.now()-lastFire>500){shoot(p);lastFire=performance.now()}
+for(const e of es){let a=Math.atan2(p.y-e.y,p.x-e.x),d=dist(p,e);e.t=a;e.cd-=dt;if(d>230){e.a=a;e.x+=Math.cos(a)*e.speed*dt;e.y+=Math.sin(a)*e.speed*dt}if(d<700&&e.cd<=0){shoot(e,true);e.cd=rand(1.3,2.2)}}
+for(const b of shots){b.x+=b.vx*dt;b.y+=b.vy*dt;b.l-=dt;if(b.bad){if(dist(b,p)<27){p.hp-=b.damage;b.l=0;boom(b.x,b.y,false)}}else for(const e of es)if(e.hp>0&&dist(b,e)<28){e.hp-=b.damage;b.l=0;boom(b.x,b.y,false);break}}
+shots=shots.filter(b=>b.l>0&&b.x>0&&b.y>0&&b.x<WORLD&&b.y<WORLD);
+es=es.filter(e=>{
+if(e.hp<=0){
+if(e.boss){
+boom(e.x,e.y,true);level++;bossSpawned=false;$('bossWrap').style.display='none';
+if(level>4){active=false;$('title').innerHTML='VITÓRIA<br>FINAL';$('desc').textContent='Você derrotou os quatro chefes e conquistou o campo de batalha! Abates: '+kills+'.';$('start').textContent='JOGAR NOVAMENTE';$('overlay').style.display='grid';return false}
+wave++;msg('CHEFE DERROTADO! NÍVEL '+level+': '+['','CAMPO DE GUERRA','BASE CONGELADA','DESERTO','FÁBRICA ABANDONADA'][level]);p.hp=Math.min(100,p.hp+25);es=[];for(let i=0;i<3+level;i++)es.push(enemy());$('level').textContent=level;return false
+}
+kills++;boom(e.x,e.y,true);return false
+}
+return true
+});
+for(const q of fx){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vx*=Math.pow(.1,dt);q.vy*=Math.pow(.1,dt);q.l-=dt}
+fx=fx.filter(q=>q.l>0);spawn-=dt;
+if(!bossSpawned&&kills>=level*4){bossSpawned=true;es=[];es.push(enemy(true));$('bossName').textContent=bossNames[level-1];$('bossWrap').style.display='block';msg('CHEFE DO NÍVEL '+level+' DETECTADO!')}
+else if(!bossSpawned&&spawn<=0&&es.length<Math.min(3+level,8)){es.push(enemy());spawn=1.8}
+let boss=es.find(e=>e.boss);if(boss){$('bossbar').style.width=(100*clamp(boss.hp/boss.max,0,1))+'%'}
+shake=Math.max(0,shake-dt*10);cam.x=clamp(p.x-W/2,0,WORLD-W);cam.y=clamp(p.y-H/2,0,WORLD-H);
+$('hptext').textContent=Math.max(0,Math.ceil(p.hp))+'%';$('hpbar').style.width=clamp(p.hp,0,100)+'%';$('kills').textContent=kills;$('wave').textContent=wave;$('level').textContent=Math.min(level,4);$('count').textContent=es.length;
+if(p.hp<=0){active=false;$('title').innerHTML='MISSION<br>FAILED';$('desc').textContent='Tanque destruído. Abates confirmados: '+kills+'. Reagrupe e tente novamente.';$('start').textContent='REINICIAR MISSÃO';$('overlay').style.display='grid'}
+}
+function draw(){
+x.clearRect(0,0,W,H);x.save();x.translate(-cam.x+(shake?rand(-shake,shake):0),-cam.y+(shake?rand(-shake,shake):0));ground();
+for(const b of shots){x.strokeStyle=b.bad?'#f07858':'#f6d28a';x.lineWidth=3;x.beginPath();x.moveTo(b.x-b.vx*.03,b.y-b.vy*.03);x.lineTo(b.x,b.y);x.stroke();x.fillStyle='#fff0b5';x.beginPath();x.arc(b.x,b.y,3,0,6.28);x.fill()}
+es.forEach(e=>tank(e,true));tank(p);
+for(const q of fx){x.globalAlpha=clamp(q.l/q.m,0,1);x.fillStyle=q.col;x.beginPath();x.arc(q.x,q.y,q.r*(q.col==='#393c30'?1+(1-q.l/q.m)*2:1),0,6.28);x.fill()}
+x.globalAlpha=1;x.restore();let g=x.createRadialGradient(W/2,H/2,Math.min(W,H)*.2,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'#0000');g.addColorStop(1,'#070a0875');x.fillStyle=g;x.fillRect(0,0,W,H)
+}
+function loop(now){if(!active)return;let dt=Math.min((now-last)/1000,.04);last=now;update(dt);draw();if(active)requestAnimationFrame(loop)}
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+c.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});c.addEventListener('mousedown',()=>mouse.down=true);addEventListener('mouseup',()=>mouse.down=false);c.addEventListener('contextmenu',e=>e.preventDefault());
+$('start').onclick=start;
+$('controls').onclick=()=>msg('WASD para dirigir · mouse para mirar · clique ou espaço para atirar');
+document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key,on=e=>{e.preventDefault();keys[k]=true},off=e=>{e.preventDefault();keys[k]=false};b.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,off))});
+$('fire').addEventListener('pointerdown',e=>{e.preventDefault();mouse.down=true});
+['pointerup','pointercancel','pointerleave'].forEach(v=>$('fire').addEventListener(v,()=>mouse.down=false));
+})();
 </script>
 </body>
 </html>
