@@ -1,0 +1,13 @@
+AO DERROTAR O BOSS:
+    adicionar 1000 pontos
+    pausar o jogo
+    iniciar contagem de 10 segundos
+
+    enquanto o tempo for maior que 0:
+        mostrar menu de aprimoramento
+        permitir melhorar dano, vida e velocidade
+        atualizar contador
+
+    fechar menu de aprimoramento
+    iniciar próximo nível
+    aumentar dificuldade do boss
